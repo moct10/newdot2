@@ -2,8 +2,7 @@ name: Kotlin CI
 
 on: 
   push:
-    brances:
-      - main
+    branches: [ main ]
 
 
 jobs:
