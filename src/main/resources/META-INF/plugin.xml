@@ -1,7 +1,7 @@
 <idea-plugin>
   <id>com.github.moct10.newdot</id>
   <name>Newdot file Explorer</name>
-  <vendor>jguo</vendor>
+  <vendor>moct10</vendor>
 
   <description><![CDATA[
     Adds support for :new . in IdeaVim and opens a file explorer buffer in the editor.

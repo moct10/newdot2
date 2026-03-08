@@ -827,7 +827,7 @@ class NewDotExtension : VimExtension {
       lines += "# root: $directory"
       lines += "# root(project): ${projectRelativePath(directory, project)}"
       lines += "# sort: ${sortMode.id} (N:name T:type M:mtime--newest 1st S:size--largest 1st)"
-      lines += "# <Enter>/o/l: open | -: up | t: tab | s: split | v: vsplit"
+      lines += "# o: open | -: up | t: tab | s: split | v: vsplit"
       lines += "# D: delete | R: rename | %: new file | d: new dir"
       lines += EXPLORER_HEADER_FOOTER
       lines += "[d] ./"

@@ -22,7 +22,7 @@ kotlin {
 
 dependencies {
   intellijPlatform {
-    intellijIdea("2025.1")
+    intellijIdea("2025.2")
     plugin("IdeaVIM:2.27.2")
   }
 }
@@ -30,8 +30,7 @@ dependencies {
 intellijPlatform {
   pluginConfiguration {
     ideaVersion {
-      // IdeaVIM 2.27.2 requires 251.23774+
-      sinceBuild = "251.23774"
+      sinceBuild = "252"
     }
   }
 }
