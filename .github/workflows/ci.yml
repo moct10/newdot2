@@ -1,28 +1,49 @@
-name: CI
+name: Build Plugin
 
 on:
   push:
     branches: [ main ]
+  pull_request:
+  release:
+    types: [created]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
+          distribution: temurin
+          java-version: 21
           cache: gradle
 
-      - name: Build with Gradle
-        run: ./gradlew clean buildPlugin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-      - name: Upload build artifact
+      - name: Build plugin
+        run: gradle buildPlugin
+
+      - name: Upload CI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: plugin-build
+          name: plugin-distribution
           path: build/distributions/*.zip
+
+  release:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Upload plugin to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/distributions/*.zip
