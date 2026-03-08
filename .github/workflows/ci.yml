@@ -20,3 +20,9 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew clean buildPlugin
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-build
+          path: build/distributions/*.zip
