@@ -1,0 +1,16 @@
+<idea-plugin>
+  <id>com.github.moct10.newdot</id>
+  <name>IdeaVim Netrw Lite file Explorer</name>
+  <vendor>jguo</vendor>
+
+  <description><![CDATA[
+    Adds support for :new . in IdeaVim and opens a file explorer buffer in the editor.
+  ]]></description>
+
+  <depends>com.intellij.modules.platform</depends>
+  <depends>IdeaVIM</depends>
+
+  <extensions defaultExtensionNs="IdeaVIM">
+    <vimExtension implementation="com.github.moct10.newdot.NewDotExtension" name="newdot" />
+  </extensions>
+</idea-plugin>
