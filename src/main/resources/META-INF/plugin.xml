@@ -1,6 +1,6 @@
 <idea-plugin>
   <id>com.github.moct10.newdot</id>
-  <name>IdeaVim Netrw Lite file Explorer</name>
+  <name>Newdot file Explorer</name>
   <vendor>jguo</vendor>
 
   <description><![CDATA[

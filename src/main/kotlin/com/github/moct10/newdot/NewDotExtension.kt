@@ -155,13 +155,6 @@ class NewDotExtension : VimExtension {
     )
     VimExtensionFacade.putExtensionHandlerMapping(
       MappingMode.N,
-      injector.parser.parseKeys("l"),
-      owner,
-      ExplorerLineOpenOrFallbackHandler(injector.parser.parseKeys("l"), ExplorerOpenMode.CURRENT),
-      false,
-    )
-    VimExtensionFacade.putExtensionHandlerMapping(
-      MappingMode.N,
       injector.parser.parseKeys("t"),
       owner,
       ExplorerLineOpenOrFallbackHandler(injector.parser.parseKeys("t"), ExplorerOpenMode.NEW_TAB),
@@ -833,7 +826,7 @@ class NewDotExtension : VimExtension {
       lines += EXPLORER_HEADER
       lines += "# root: $directory"
       lines += "# root(project): ${projectRelativePath(directory, project)}"
-      lines += "# sort: ${sortMode.id} (N:name T:type M:mtime S:size)"
+      lines += "# sort: ${sortMode.id} (N:name T:type M:mtime--newest 1st S:size--largest 1st)"
       lines += "# <Enter>/o/l: open | -: up | t: tab | s: split | v: vsplit"
       lines += "# D: delete | R: rename | %: new file | d: new dir"
       lines += EXPLORER_HEADER_FOOTER
