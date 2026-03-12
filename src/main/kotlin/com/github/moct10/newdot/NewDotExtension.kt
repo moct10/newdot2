@@ -391,7 +391,7 @@ class NewDotExtension : VimExtension {
         project,
         scratchFileName(root),
         PlainTextLanguage.INSTANCE,
-        render(root, project, ExplorerSortMode.NAME),
+        "",
         ScratchFileService.Option.create_new_always,
       ) ?: run {
         showError(editorForMessages, "newdot: Could not create explorer buffer")
@@ -405,6 +405,9 @@ class NewDotExtension : VimExtension {
       }
       explorer.putUserData(EXPLORER_FILE_KEY, true)
       installCleanupListener(project)
+      WriteCommandAction.runWriteCommandAction(project) {
+        explorerDocument.setText(render(root, project, ExplorerSortMode.NAME))
+      }
       setExplorerReadOnly(explorerDocument, true)
 
       val editorManagerEx = FileEditorManagerEx.getInstanceEx(project)
@@ -492,7 +495,7 @@ class NewDotExtension : VimExtension {
         project,
         scratchFileName(root),
         PlainTextLanguage.INSTANCE,
-        render(root, project, ExplorerSortMode.NAME),
+        "",
         ScratchFileService.Option.create_new_always,
       ) ?: run {
         showError(editorForMessages, "newdot: Could not create explorer buffer")
@@ -506,6 +509,9 @@ class NewDotExtension : VimExtension {
       }
       explorer.putUserData(EXPLORER_FILE_KEY, true)
       installCleanupListener(project)
+      WriteCommandAction.runWriteCommandAction(project) {
+        explorerDocument.setText(render(root, project, ExplorerSortMode.NAME))
+      }
       setExplorerReadOnly(explorerDocument, true)
 
       val editorManager = FileEditorManagerEx.getInstanceEx(project)
