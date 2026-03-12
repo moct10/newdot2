@@ -55,86 +55,14 @@ class NewDotExtension : VimExtension {
     VimExtensionFacade.addCommand("NewDotTab", 0, 1, TabCommandHandler())
     VimExtensionFacade.addCommand("Netrw", 0, 1, NetrwCommandHandler())
     VimExtensionFacade.addCommand("NewDotOpenLine", OpenLineCommandHandler())
-    installNewCommandMappings()
     installExplorerKeyMappings()
+    VimExtensionFacade.addCommand("new", 0, 1, NewCommandHandler())
+    VimExtensionFacade.addCommand("e", 0, 1, EditCommandHandler())
+    VimExtensionFacade.addCommand("edit", 0, 1, EditCommandHandler())
+    VimExtensionFacade.addCommand("tabe", 0, 1, TabCommandHandler())
+    VimExtensionFacade.addCommand("tabedit", 0, 1, TabCommandHandler())
   }
 
-  private fun installNewCommandMappings() {
-    if (commandLineMappingInstalled) return
-
-    VimExtensionFacade.putKeyMapping(
-      MappingMode.C,
-      injector.parser.parseKeys("new "),
-      owner,
-      injector.parser.parseKeys("NewDot "),
-      false,
-    )
-    VimExtensionFacade.putKeyMapping(
-      MappingMode.C,
-      injector.parser.parseKeys("new<CR>"),
-      owner,
-      injector.parser.parseKeys("NewDot<CR>"),
-      false,
-    )
-    VimExtensionFacade.putKeyMapping(
-      MappingMode.C,
-      injector.parser.parseKeys("e "),
-      owner,
-      injector.parser.parseKeys("NewDotEdit "),
-      false,
-    )
-    VimExtensionFacade.putKeyMapping(
-      MappingMode.C,
-      injector.parser.parseKeys("e<CR>"),
-      owner,
-      injector.parser.parseKeys("NewDotEdit<CR>"),
-      false,
-    )
-    VimExtensionFacade.putKeyMapping(
-      MappingMode.C,
-      injector.parser.parseKeys("edit "),
-      owner,
-      injector.parser.parseKeys("NewDotEdit "),
-      false,
-    )
-    VimExtensionFacade.putKeyMapping(
-      MappingMode.C,
-      injector.parser.parseKeys("edit<CR>"),
-      owner,
-      injector.parser.parseKeys("NewDotEdit<CR>"),
-      false,
-    )
-    VimExtensionFacade.putKeyMapping(
-      MappingMode.C,
-      injector.parser.parseKeys("tabe "),
-      owner,
-      injector.parser.parseKeys("NewDotTab "),
-      false,
-    )
-    VimExtensionFacade.putKeyMapping(
-      MappingMode.C,
-      injector.parser.parseKeys("tabe<CR>"),
-      owner,
-      injector.parser.parseKeys("NewDotTab<CR>"),
-      false,
-    )
-    VimExtensionFacade.putKeyMapping(
-      MappingMode.C,
-      injector.parser.parseKeys("tabedit "),
-      owner,
-      injector.parser.parseKeys("NewDotTab "),
-      false,
-    )
-    VimExtensionFacade.putKeyMapping(
-      MappingMode.C,
-      injector.parser.parseKeys("tabedit<CR>"),
-      owner,
-      injector.parser.parseKeys("NewDotTab<CR>"),
-      false,
-    )
-
-    commandLineMappingInstalled = true
-  }
 
   private fun installExplorerKeyMappings() {
     if (explorerKeyMappingInstalled) return
@@ -1042,7 +970,6 @@ class NewDotExtension : VimExtension {
     private val PARENT_DIRECTORY_ATTRIBUTES = TextAttributes(JBColor(0xB45309, 0xF59E0B), null, null, null, Font.BOLD)
     private val DIRECTORY_ATTRIBUTES = TextAttributes(JBColor(0x2563EB, 0x60A5FA), null, null, null, Font.BOLD)
     private val FILE_ATTRIBUTES = TextAttributes(JBColor(0x15803D, 0x86EFAC), null, null, null, Font.PLAIN)
-    private var commandLineMappingInstalled = false
     private var explorerKeyMappingInstalled = false
 
     private fun resolveBaseDirectory(editor: VimEditor, project: Project): Path {
