@@ -34,6 +34,7 @@ import com.maddyhome.idea.vim.extension.VimExtension
 import com.maddyhome.idea.vim.extension.VimExtensionFacade
 import com.maddyhome.idea.vim.newapi.ij
 import com.maddyhome.idea.vim.newapi.vim
+import com.maddyhome.idea.vim.state.mode.SelectionType
 import java.awt.Font
 import java.io.IOException
 import java.nio.file.FileVisitResult
@@ -170,6 +171,13 @@ class NewDotExtension : VimExtension {
       injector.parser.parseKeys("d"),
       owner,
       ExplorerCreateDirectoryOrFallbackHandler(injector.parser.parseKeys("d")),
+      false,
+    )
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.N,
+      injector.parser.parseKeys("y"),
+      owner,
+      ExplorerYankOrFallbackHandler(injector.parser.parseKeys("y")),
       false,
     )
 
@@ -396,6 +404,19 @@ class NewDotExtension : VimExtension {
     }
   }
 
+  private class ExplorerYankOrFallbackHandler(
+    private val fallbackKeys: List<KeyStroke>,
+  ) : ExtensionHandler {
+    override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
+      val project = editor.ij.project
+      if (project != null && isExplorerBuffer(editor)) {
+        ExplorerBuffer.yankUnderCursor(project, editor, context)
+        return
+      }
+      VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
+    }
+  }
+
   private object ExplorerBuffer {
     private data class ExplorerEntry(
       val path: Path,
@@ -424,7 +445,7 @@ class NewDotExtension : VimExtension {
         project,
         scratchFileName(root),
         PlainTextLanguage.INSTANCE,
-        "",
+        render(root, project, ExplorerSortMode.NAME),
         ScratchFileService.Option.create_new_always,
       ) ?: run {
         showError(editorForMessages, "newdot: Could not create explorer buffer")
@@ -437,9 +458,6 @@ class NewDotExtension : VimExtension {
         return
       }
       explorer.putUserData(EXPLORER_FILE_KEY, true)
-      WriteCommandAction.runWriteCommandAction(project) {
-        explorerDocument.setText(render(root, project, ExplorerSortMode.NAME))
-      }
       setExplorerReadOnly(explorerDocument, true)
 
       val editorManagerEx = FileEditorManagerEx.getInstanceEx(project)
@@ -524,7 +542,7 @@ class NewDotExtension : VimExtension {
         project,
         scratchFileName(root),
         PlainTextLanguage.INSTANCE,
-        "",
+        render(root, project, ExplorerSortMode.NAME),
         ScratchFileService.Option.create_new_always,
       ) ?: run {
         showError(editorForMessages, "newdot: Could not create explorer buffer")
@@ -537,9 +555,6 @@ class NewDotExtension : VimExtension {
         return
       }
       explorer.putUserData(EXPLORER_FILE_KEY, true)
-      WriteCommandAction.runWriteCommandAction(project) {
-        explorerDocument.setText(render(root, project, ExplorerSortMode.NAME))
-      }
       setExplorerReadOnly(explorerDocument, true)
 
       val editorManager = FileEditorManagerEx.getInstanceEx(project)
@@ -741,6 +756,24 @@ class NewDotExtension : VimExtension {
       replaceExplorerContents(project, editor.ij.document, root, readSortMode(editor.ij.document))
     }
 
+    fun yankUnderCursor(project: Project, editor: VimEditor, context: ExecutionContext) {
+      val entry = resolveEntryUnderCursor(project, editor) ?: return
+      val normalized = entry.path.toAbsolutePath().normalize()
+      val text = if (Files.isDirectory(normalized)) "${normalized}/" else normalized.toString()
+      val registerGroup = injector.registerGroup
+      val registerChar = if (editor.ij.caretModel.caretCount == 1) {
+        registerGroup.currentRegister
+      } else {
+        registerGroup.getCurrentRegisterForMulticaret()
+      }
+      val stored = registerGroup.storeText(editor, context, registerChar, text, SelectionType.LINE_WISE)
+      if (!stored) {
+        showError(editor, "newdot: Register not writable: $registerChar")
+        return
+      }
+      showInfo(editor, "newdot: Yanked to register $registerChar")
+    }
+
     private fun replaceExplorerContents(
       project: Project,
       document: Document,
@@ -810,7 +843,7 @@ class NewDotExtension : VimExtension {
       lines += "# root: $directory"
       lines += "# root(project): ${projectRelativePath(directory, project)}"
       lines += "# sort: ${sortMode.id} (N:name T:type M:mtime--newest 1st S:size--largest 1st)"
-      lines += "# o: open | -: up | ~: home | p: project root | t: tab | s: split"
+      lines += "# o: open | -: up | ~: home | p: project root | t: tab | s: split | y: yank"
       lines += "# D: delete | R: rename | %: new file | d: new dir"
       lines += EXPLORER_HEADER_FOOTER
       lines += "[d] ./"
@@ -1155,6 +1188,10 @@ class NewDotExtension : VimExtension {
     private fun showError(editor: VimEditor, message: String) {
       injector.messages.showStatusBarMessage(editor, message)
       injector.messages.indicateError()
+    }
+
+    private fun showInfo(editor: VimEditor, message: String) {
+      injector.messages.showStatusBarMessage(editor, message)
     }
   }
 }

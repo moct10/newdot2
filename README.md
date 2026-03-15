@@ -23,6 +23,7 @@ This plugin adds `:new <path>` support to IdeaVim and opens a file explorer in a
 - In the listing buffer, `<Enter>` (or `o`) on a directory (`[d]` / `[u]`) changes the listing in-place to that directory.
 - In the listing buffer, `~` jumps to your home directory.
 - In the listing buffer, `p` jumps to the project root directory.
+- In the listing buffer, `y` yanks the file or folder path under the cursor into the same register as `yy` (so `p` works in another IdeaVim window).
 - In the listing buffer, `<Enter>` (or `o`) on a file (`[f]`) opens that file in place (replaces the explorer in that split).
 - In the listing buffer, `t` on a file opens it in a new tab.
 - In the listing buffer, `s` on a file opens it in a horizontal split.
