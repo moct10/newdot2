@@ -1,6 +1,6 @@
 # IdeaVim New Dot Explorer
 
-This plugin adds `:new .` support to IdeaVim and opens a file explorer in an editor split (not the Project tool window).
+This plugin adds `:new <path>` support to IdeaVim and opens a file explorer in an editor split (not the Project tool window).
 
 ## What it does
 
@@ -24,7 +24,6 @@ This plugin adds `:new .` support to IdeaVim and opens a file explorer in an edi
 - In the listing buffer, `<Enter>` (or `o`) on a file (`[f]`) opens that file in place (replaces the explorer in that split).
 - In the listing buffer, `t` on a file opens it in a new tab.
 - In the listing buffer, `s` on a file opens it in a horizontal split.
-- In the listing buffer, `v` on a file opens it in a vertical split.
 - Sorting in explorer buffer:
   - `N`: sort by name (ascending)
   - `T`: sort by file type/extension (ascending)
@@ -63,6 +62,8 @@ After restarting (or reloading IdeaVim config), you can run:
 
 ```vim
 :new .
+:new /path/to/dir
+:new ~/Downloads
 ```
 
 This stays in editor splits and does not use the Project tool window.

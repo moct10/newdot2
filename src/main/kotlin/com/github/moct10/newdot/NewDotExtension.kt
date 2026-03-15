@@ -97,13 +97,6 @@ class NewDotExtension : VimExtension {
     )
     VimExtensionFacade.putExtensionHandlerMapping(
       MappingMode.N,
-      injector.parser.parseKeys("v"),
-      owner,
-      ExplorerLineOpenOrFallbackHandler(injector.parser.parseKeys("v"), ExplorerOpenMode.VERTICAL_SPLIT),
-      false,
-    )
-    VimExtensionFacade.putExtensionHandlerMapping(
-      MappingMode.N,
       injector.parser.parseKeys("N"),
       owner,
       ExplorerSortOrFallbackHandler(injector.parser.parseKeys("N"), ExplorerSortMode.NAME),
@@ -200,7 +193,6 @@ class NewDotExtension : VimExtension {
     CURRENT,
     NEW_TAB,
     HORIZONTAL_SPLIT,
-    VERTICAL_SPLIT,
   }
 
   private enum class ExplorerSortMode(val id: String) {
@@ -386,6 +378,7 @@ class NewDotExtension : VimExtension {
         showError(editorForMessages, "newdot: Not a directory: $root")
         return
       }
+      installCleanupListener(project)
 
       val explorer = ScratchRootType.getInstance().createScratchFile(
         project,
@@ -404,7 +397,6 @@ class NewDotExtension : VimExtension {
         return
       }
       explorer.putUserData(EXPLORER_FILE_KEY, true)
-      installCleanupListener(project)
       WriteCommandAction.runWriteCommandAction(project) {
         explorerDocument.setText(render(root, project, ExplorerSortMode.NAME))
       }
@@ -456,10 +448,6 @@ class NewDotExtension : VimExtension {
           runExCommand("split $escapedTarget", editor, context)
           return
         }
-        ExplorerOpenMode.VERTICAL_SPLIT -> {
-          runExCommand("vsplit $escapedTarget", editor, context)
-          return
-        }
         ExplorerOpenMode.CURRENT -> Unit
       }
 
@@ -490,6 +478,7 @@ class NewDotExtension : VimExtension {
         showError(editorForMessages, "newdot: Not a directory: $root")
         return
       }
+      installCleanupListener(project)
 
       val explorer = ScratchRootType.getInstance().createScratchFile(
         project,
@@ -508,7 +497,6 @@ class NewDotExtension : VimExtension {
         return
       }
       explorer.putUserData(EXPLORER_FILE_KEY, true)
-      installCleanupListener(project)
       WriteCommandAction.runWriteCommandAction(project) {
         explorerDocument.setText(render(root, project, ExplorerSortMode.NAME))
       }
@@ -535,6 +523,7 @@ class NewDotExtension : VimExtension {
         showError(editorForMessages, "newdot: Not a directory: $root")
         return
       }
+      installCleanupListener(project)
 
       val explorer = ScratchRootType.getInstance().createScratchFile(
         project,
@@ -553,7 +542,6 @@ class NewDotExtension : VimExtension {
         return
       }
       explorer.putUserData(EXPLORER_FILE_KEY, true)
-      installCleanupListener(project)
       setExplorerReadOnly(explorerDocument, true)
 
       FileEditorManagerEx.getInstanceEx(project).openFile(explorer, true)
@@ -761,7 +749,7 @@ class NewDotExtension : VimExtension {
       lines += "# root: $directory"
       lines += "# root(project): ${projectRelativePath(directory, project)}"
       lines += "# sort: ${sortMode.id} (N:name T:type M:mtime--newest 1st S:size--largest 1st)"
-      lines += "# o: open | -: up | t: tab | s: split | v: vsplit"
+      lines += "# o: open | -: up | t: tab | s: split"
       lines += "# D: delete | R: rename | %: new file | d: new dir"
       lines += EXPLORER_HEADER_FOOTER
       lines += "[d] ./"

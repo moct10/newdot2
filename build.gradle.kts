@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.github.moct10"
-version = "0.2.30"
+version = "0.2.31"
 
 repositories {
   mavenCentral()
