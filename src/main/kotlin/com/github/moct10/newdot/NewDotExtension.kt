@@ -132,6 +132,20 @@ class NewDotExtension : VimExtension {
     )
     VimExtensionFacade.putExtensionHandlerMapping(
       MappingMode.N,
+      injector.parser.parseKeys("~"),
+      owner,
+      ExplorerNavigateHomeOrFallbackHandler(injector.parser.parseKeys("~")),
+      false,
+    )
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.N,
+      injector.parser.parseKeys("p"),
+      owner,
+      ExplorerNavigateProjectRootOrFallbackHandler(injector.parser.parseKeys("p")),
+      false,
+    )
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.N,
       injector.parser.parseKeys("D"),
       owner,
       ExplorerDeleteOrFallbackHandler(injector.parser.parseKeys("D")),
@@ -298,6 +312,32 @@ class NewDotExtension : VimExtension {
       val project = editor.ij.project
       if (project != null && isExplorerBuffer(editor)) {
         ExplorerBuffer.navigateUp(project, editor)
+        return
+      }
+      VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
+    }
+  }
+
+  private class ExplorerNavigateHomeOrFallbackHandler(
+    private val fallbackKeys: List<KeyStroke>,
+  ) : ExtensionHandler {
+    override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
+      val project = editor.ij.project
+      if (project != null && isExplorerBuffer(editor)) {
+        ExplorerBuffer.navigateHome(project, editor)
+        return
+      }
+      VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
+    }
+  }
+
+  private class ExplorerNavigateProjectRootOrFallbackHandler(
+    private val fallbackKeys: List<KeyStroke>,
+  ) : ExtensionHandler {
+    override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
+      val project = editor.ij.project
+      if (project != null && isExplorerBuffer(editor)) {
+        ExplorerBuffer.navigateProjectRoot(project, editor)
         return
       }
       VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
@@ -563,6 +603,27 @@ class NewDotExtension : VimExtension {
       replaceExplorerContents(project, editor.ij.document, parent, readSortMode(editor.ij.document))
     }
 
+    fun navigateHome(project: Project, editor: VimEditor) {
+      val home = Paths.get(System.getProperty("user.home")).toAbsolutePath().normalize()
+      if (!Files.exists(home) || !Files.isDirectory(home)) {
+        showError(editor, "newdot: Not a directory: $home")
+        return
+      }
+      replaceExplorerContents(project, editor.ij.document, home, readSortMode(editor.ij.document))
+    }
+
+    fun navigateProjectRoot(project: Project, editor: VimEditor) {
+      val projectBase = project.basePath?.let { Paths.get(it).toAbsolutePath().normalize() } ?: run {
+        showError(editor, "newdot: Project base path not available")
+        return
+      }
+      if (!Files.exists(projectBase) || !Files.isDirectory(projectBase)) {
+        showError(editor, "newdot: Not a directory: $projectBase")
+        return
+      }
+      replaceExplorerContents(project, editor.ij.document, projectBase, readSortMode(editor.ij.document))
+    }
+
     fun deleteUnderCursor(project: Project, editor: VimEditor) {
       val root = resolveBaseDirectory(editor, project).toAbsolutePath().normalize()
       val entry = resolveEntryUnderCursor(project, editor) ?: return
@@ -749,7 +810,7 @@ class NewDotExtension : VimExtension {
       lines += "# root: $directory"
       lines += "# root(project): ${projectRelativePath(directory, project)}"
       lines += "# sort: ${sortMode.id} (N:name T:type M:mtime--newest 1st S:size--largest 1st)"
-      lines += "# o: open | -: up | t: tab | s: split"
+      lines += "# o: open | -: up | ~: home | p: project root | t: tab | s: split"
       lines += "# D: delete | R: rename | %: new file | d: new dir"
       lines += EXPLORER_HEADER_FOOTER
       lines += "[d] ./"
