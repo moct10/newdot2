@@ -463,7 +463,9 @@ class NewDotExtension : VimExtension {
       val editorManagerEx = FileEditorManagerEx.getInstanceEx(project)
       val currentWindow = editorManagerEx.currentWindow
       if (currentWindow != null) {
-        currentWindow.split(SwingConstants.HORIZONTAL, true, explorer, true)
+        if (!splitWindow(currentWindow, explorer, SwingConstants.HORIZONTAL, true)) {
+          editorManagerEx.openFile(explorer, true)
+        }
       } else {
         editorManagerEx.openFile(explorer, true)
       }
@@ -1149,6 +1151,51 @@ class NewDotExtension : VimExtension {
       } catch (_: Throwable) {
         false
       }
+    }
+
+    private fun splitWindow(
+      window: com.intellij.openapi.fileEditor.impl.EditorWindow,
+      file: com.intellij.openapi.vfs.VirtualFile,
+      orientation: Int,
+      focus: Boolean,
+    ): Boolean {
+      val methods = window.javaClass.methods
+      val fourArg = methods.firstOrNull { candidate ->
+        candidate.name == "split" &&
+          candidate.parameterTypes.size == 4 &&
+          candidate.parameterTypes[0] == Int::class.javaPrimitiveType &&
+          candidate.parameterTypes[1] == Boolean::class.javaPrimitiveType &&
+          candidate.parameterTypes[2].name == "com.intellij.openapi.vfs.VirtualFile" &&
+          candidate.parameterTypes[3] == Boolean::class.javaPrimitiveType
+      }
+      if (fourArg != null) {
+        return try {
+          fourArg.invoke(window, orientation, true, file, focus)
+          true
+        } catch (_: Throwable) {
+          false
+        }
+      }
+
+      val fiveArg = methods.firstOrNull { candidate ->
+        candidate.name == "split" &&
+          candidate.parameterTypes.size == 5 &&
+          candidate.parameterTypes[0] == Int::class.javaPrimitiveType &&
+          candidate.parameterTypes[1] == Boolean::class.javaPrimitiveType &&
+          candidate.parameterTypes[2].name == "com.intellij.openapi.vfs.VirtualFile" &&
+          candidate.parameterTypes[3] == Boolean::class.javaPrimitiveType &&
+          candidate.parameterTypes[4] == Boolean::class.javaPrimitiveType
+      }
+      if (fiveArg != null) {
+        return try {
+          fiveArg.invoke(window, orientation, true, file, focus, true)
+          true
+        } catch (_: Throwable) {
+          false
+        }
+      }
+
+      return false
     }
 
     private fun isExplorerBuffer(editor: VimEditor): Boolean {
