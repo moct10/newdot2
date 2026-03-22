@@ -77,6 +77,13 @@ class NewDotExtension : VimExtension {
     )
     VimExtensionFacade.putExtensionHandlerMapping(
       MappingMode.N,
+      injector.parser.parseKeys("gf"),
+      owner,
+      GotoFileWithNewDotOrFallbackHandler(injector.parser.parseKeys("gf")),
+      false,
+    )
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.N,
       injector.parser.parseKeys("o"),
       owner,
       ExplorerLineOpenOrFallbackHandler(injector.parser.parseKeys("o"), ExplorerOpenMode.CURRENT),
@@ -295,6 +302,15 @@ class NewDotExtension : VimExtension {
         ExplorerBuffer.openFromLineUnderCursor(project, editor, context, openMode)
         return
       }
+      VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
+    }
+  }
+
+  private class GotoFileWithNewDotOrFallbackHandler(
+    private val fallbackKeys: List<KeyStroke>,
+  ) : ExtensionHandler {
+    override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
+      if (openPathUnderCursorWithNewDot(editor, context)) return
       VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
     }
   }
@@ -1061,6 +1077,64 @@ class NewDotExtension : VimExtension {
     private val DIRECTORY_ATTRIBUTES = TextAttributes(JBColor(0x2563EB, 0x60A5FA), null, null, null, Font.BOLD)
     private val FILE_ATTRIBUTES = TextAttributes(JBColor(0x15803D, 0x86EFAC), null, null, null, Font.PLAIN)
     private var explorerKeyMappingInstalled = false
+
+    private fun openPathUnderCursorWithNewDot(editor: VimEditor, context: ExecutionContext): Boolean {
+      if (editor.ij.project == null) return false
+      val token = extractPathTokenUnderCursor(editor.ij.document, editor.ij.caretModel.offset) ?: return false
+      runExCommand("NewDotEdit ${escapeExArgument(token)}", editor, context)
+      return true
+    }
+
+    private fun extractPathTokenUnderCursor(document: Document, caretOffset: Int): String? {
+      if (document.textLength == 0 || document.lineCount == 0) return null
+
+      val safeOffset = caretOffset.coerceIn(0, document.textLength - 1)
+      val line = document.getLineNumber(safeOffset)
+      val lineStart = document.getLineStartOffset(line)
+      val lineEnd = document.getLineEndOffset(line)
+      if (lineEnd <= lineStart) return null
+
+      val lineText = document.getText(TextRange(lineStart, lineEnd))
+      if (lineText.isBlank()) return null
+
+      val cursorInLine = (safeOffset - lineStart).coerceIn(0, lineText.length - 1)
+      val anchor = when {
+        !lineText[cursorInLine].isWhitespace() -> cursorInLine
+        cursorInLine > 0 && !lineText[cursorInLine - 1].isWhitespace() -> cursorInLine - 1
+        cursorInLine + 1 < lineText.length && !lineText[cursorInLine + 1].isWhitespace() -> cursorInLine + 1
+        else -> return null
+      }
+
+      var start = anchor
+      while (start > 0 && !lineText[start - 1].isWhitespace()) start--
+      var endExclusive = anchor + 1
+      while (endExclusive < lineText.length && !lineText[endExclusive].isWhitespace()) endExclusive++
+
+      return sanitizePathToken(lineText.substring(start, endExclusive))
+    }
+
+    private fun sanitizePathToken(raw: String): String? {
+      var token = raw.trim()
+      if (token.isEmpty()) return null
+
+      val leadingTrim = charArrayOf('"', '\'', '`', '(', '[', '{', '<')
+      while (token.isNotEmpty() && leadingTrim.contains(token.first())) {
+        token = token.substring(1)
+      }
+
+      val trailingTrim = charArrayOf('"', '\'', '`', ')', ']', '}', '>', ',', ';')
+      while (token.isNotEmpty() && trailingTrim.contains(token.last())) {
+        token = token.dropLast(1)
+      }
+
+      if (token.endsWith(":") && !(token.length == 2 && token[0].isLetter())) {
+        token = token.dropLast(1)
+      }
+
+      if (token.isEmpty()) return null
+      val normalized = normalizeExPathArgument(token)
+      return normalized.ifBlank { null }
+    }
 
     private fun resolveBaseDirectory(editor: VimEditor, project: Project): Path {
       if (isExplorerBuffer(editor)) {
