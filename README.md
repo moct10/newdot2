@@ -4,16 +4,12 @@ This plugin adds `:new <path>` support to IdeaVim and opens a file explorer in a
 
 ## What it does
 
-- Adds a `:NewDot` command handler.
-- Adds a `:NewDotEdit` command handler.
-- Adds a `:NewDotTab` command handler.
-- Maps command-line `new` to `NewDot`, so typing `:new ...` routes to the plugin command.
-- Maps command-line `e` / `edit` to `NewDotEdit`, so `:e .` replaces current view with the explorer.
-- Maps command-line `tabe` / `tabedit` to `NewDotTab`, so `:tabe .` opens explorer in a new tab.
+- Supports Vim-style `:new`, `:e` / `:edit`, and `:tabe` / `:tabedit` for directory-aware behavior by rewriting them to plugin aliases on `<CR>`.
+- Keeps `:NewDot`, `:NewDotEdit`, and `:NewDotTab` as explicit aliases.
 - Directory arguments work with absolute, relative, and home paths (for example `:new ~`, `:e ~/Downloads`, `:tabe /tmp`).
 - For directory arguments (`:new .`, `:new /path`), opens an editor split with a directory listing.
-- In normal buffers, `gf` resolves the token under cursor and routes it through `:NewDotEdit`, so files open in-place and directories open the explorer.
-- In normal buffers, `<C-W>gf` resolves the token under cursor and routes it through `:NewDot`, so files/directories open in a split.
+- In normal buffers, `gf` resolves the token under cursor and routes it through NewDot edit semantics, so files open in-place and directories open the explorer.
+- In normal buffers, `<C-W>gf` resolves the token under cursor and routes it through NewDot split semantics, so files/directories open in a split.
 - Entries are displayed with relative paths (`./file`, `./dir/`), plus `./` (current) and `../` (parent).
 - Explorer header uses an `========== ... ==========` title line.
 - Current folder is shown as absolute (`# root:`) and project-relative (`# root(project):`) paths.

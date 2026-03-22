@@ -57,6 +57,7 @@ class NewDotExtension : VimExtension {
     VimExtensionFacade.addCommand("Netrw", 0, 1, NetrwCommandHandler())
     VimExtensionFacade.addCommand("NewDotOpenLine", OpenLineCommandHandler())
     installExplorerKeyMappings()
+    installCommandLineMappings()
     VimExtensionFacade.addCommand("new", 0, 1, NewCommandHandler())
     VimExtensionFacade.addCommand("e", 0, 1, EditCommandHandler())
     VimExtensionFacade.addCommand("edit", 0, 1, EditCommandHandler())
@@ -198,6 +199,20 @@ class NewDotExtension : VimExtension {
     explorerKeyMappingInstalled = true
   }
 
+  private fun installCommandLineMappings() {
+    if (commandLineEnterMappingInstalled) return
+
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.C,
+      injector.parser.parseKeys("<CR>"),
+      owner,
+      CommandLineEnterRewriteOrFallbackHandler(injector.parser.parseKeys("<CR>")),
+      false,
+    )
+
+    commandLineEnterMappingInstalled = true
+  }
+
   private class NewCommandHandler : CommandAliasHandler {
     override fun execute(command: String, range: Range, editor: VimEditor, context: ExecutionContext) {
       val arguments = command.substringAfter(' ', "").trim()
@@ -327,6 +342,21 @@ class NewDotExtension : VimExtension {
   ) : ExtensionHandler {
     override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
       if (openPathUnderCursorWithNewDot(editor, context, "NewDot")) return
+      VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
+    }
+  }
+
+  private class CommandLineEnterRewriteOrFallbackHandler(
+    private val fallbackKeys: List<KeyStroke>,
+  ) : ExtensionHandler {
+    override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
+      val commandLine = injector.commandLine.getActiveCommandLine()
+      if (commandLine != null) {
+        val rewritten = rewriteCommandLineForNewDot(commandLine.text)
+        if (rewritten != null && rewritten != commandLine.text) {
+          commandLine.setText(rewritten)
+        }
+      }
       VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
     }
   }
@@ -1093,12 +1123,39 @@ class NewDotExtension : VimExtension {
     private val DIRECTORY_ATTRIBUTES = TextAttributes(JBColor(0x2563EB, 0x60A5FA), null, null, null, Font.BOLD)
     private val FILE_ATTRIBUTES = TextAttributes(JBColor(0x15803D, 0x86EFAC), null, null, null, Font.PLAIN)
     private var explorerKeyMappingInstalled = false
+    private var commandLineEnterMappingInstalled = false
 
     private fun openPathUnderCursorWithNewDot(editor: VimEditor, context: ExecutionContext, newDotCommand: String): Boolean {
       if (editor.ij.project == null) return false
       val token = extractPathTokenUnderCursor(editor.ij.document, editor.ij.caretModel.offset) ?: return false
       runExCommand("$newDotCommand ${escapeExArgument(token)}", editor, context)
       return true
+    }
+
+    private fun rewriteCommandLineForNewDot(commandText: String): String? {
+      val trimmedStart = commandText.indexOfFirst { ch -> !ch.isWhitespace() }
+      if (trimmedStart < 0) return null
+
+      val leadingWhitespace = commandText.substring(0, trimmedStart)
+      val body = commandText.substring(trimmedStart)
+      val commandToken = body.substringBefore(' ')
+      if (commandToken.isBlank()) return null
+
+      val bangSuffix = if (commandToken.endsWith("!")) "!" else ""
+      val normalizedCommand = commandToken.removeSuffix("!").lowercase()
+      val rewrittenCommand = when (normalizedCommand) {
+        "new" -> "NewDot$bangSuffix"
+        "e", "edit" -> "NewDotEdit$bangSuffix"
+        "tabe", "tabedit" -> "NewDotTab$bangSuffix"
+        else -> return null
+      }
+
+      val argumentPart = body.substringAfter(' ', "").trimStart()
+      return if (argumentPart.isEmpty()) {
+        "$leadingWhitespace$rewrittenCommand"
+      } else {
+        "$leadingWhitespace$rewrittenCommand $argumentPart"
+      }
     }
 
     private fun extractPathTokenUnderCursor(document: Document, caretOffset: Int): String? {
@@ -1114,42 +1171,7 @@ class NewDotExtension : VimExtension {
       if (lineText.isBlank()) return null
 
       val cursorInLine = (safeOffset - lineStart).coerceIn(0, lineText.length - 1)
-      val anchor = when {
-        !lineText[cursorInLine].isWhitespace() -> cursorInLine
-        cursorInLine > 0 && !lineText[cursorInLine - 1].isWhitespace() -> cursorInLine - 1
-        cursorInLine + 1 < lineText.length && !lineText[cursorInLine + 1].isWhitespace() -> cursorInLine + 1
-        else -> return null
-      }
-
-      var start = anchor
-      while (start > 0 && !lineText[start - 1].isWhitespace()) start--
-      var endExclusive = anchor + 1
-      while (endExclusive < lineText.length && !lineText[endExclusive].isWhitespace()) endExclusive++
-
-      return sanitizePathToken(lineText.substring(start, endExclusive))
-    }
-
-    private fun sanitizePathToken(raw: String): String? {
-      var token = raw.trim()
-      if (token.isEmpty()) return null
-
-      val leadingTrim = charArrayOf('"', '\'', '`', '(', '[', '{', '<')
-      while (token.isNotEmpty() && leadingTrim.contains(token.first())) {
-        token = token.substring(1)
-      }
-
-      val trailingTrim = charArrayOf('"', '\'', '`', ')', ']', '}', '>', ',', ';')
-      while (token.isNotEmpty() && trailingTrim.contains(token.last())) {
-        token = token.dropLast(1)
-      }
-
-      if (token.endsWith(":") && !(token.length == 2 && token[0].isLetter())) {
-        token = token.dropLast(1)
-      }
-
-      if (token.isEmpty()) return null
-      val normalized = normalizeExPathArgument(token)
-      return normalized.ifBlank { null }
+      return PathTokenResolver.extractPathTokenFromLine(lineText, cursorInLine)
     }
 
     private fun resolveBaseDirectory(editor: VimEditor, project: Project): Path {
@@ -1195,33 +1217,7 @@ class NewDotExtension : VimExtension {
     }
 
     private fun normalizeExPathArgument(argument: String): String {
-      var normalized = argument.trim()
-      if (normalized.length >= 2) {
-        val first = normalized.first()
-        val last = normalized.last()
-        if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
-          normalized = normalized.substring(1, normalized.length - 1)
-        }
-      }
-
-      if (!normalized.contains('\\')) return normalized
-
-      val decoded = StringBuilder(normalized.length)
-      var index = 0
-      while (index < normalized.length) {
-        val ch = normalized[index]
-        if (ch == '\\' && index + 1 < normalized.length) {
-          val next = normalized[index + 1]
-          if (next == ' ' || next == '\\' || next == '|' || next == '"' || next == '\'') {
-            decoded.append(next)
-            index += 2
-            continue
-          }
-        }
-        decoded.append(ch)
-        index++
-      }
-      return decoded.toString()
+      return PathTokenResolver.normalizeExPathArgument(argument)
     }
 
     private fun openFileInWindow(

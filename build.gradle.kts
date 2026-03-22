@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.github.moct10"
-version = "0.2.36"
+version = "0.2.39"
 
 repositories {
   mavenCentral()
@@ -25,6 +25,8 @@ dependencies {
     intellijIdea("2025.2")
     plugin("IdeaVIM:2.27.2")
   }
+  testImplementation(kotlin("test-junit"))
+  testImplementation("junit:junit:4.13.2")
 }
 
 intellijPlatform {
@@ -37,4 +39,8 @@ intellijPlatform {
 
 tasks.withType<KotlinCompile>().configureEach {
   compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
+}
+
+tasks.test {
+  useJUnit()
 }
