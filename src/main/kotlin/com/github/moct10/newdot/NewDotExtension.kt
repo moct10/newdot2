@@ -84,6 +84,13 @@ class NewDotExtension : VimExtension {
     )
     VimExtensionFacade.putExtensionHandlerMapping(
       MappingMode.N,
+      injector.parser.parseKeys("<C-W>gf"),
+      owner,
+      GotoFileWithNewDotSplitOrFallbackHandler(injector.parser.parseKeys("<C-W>gf")),
+      false,
+    )
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.N,
       injector.parser.parseKeys("o"),
       owner,
       ExplorerLineOpenOrFallbackHandler(injector.parser.parseKeys("o"), ExplorerOpenMode.CURRENT),
@@ -310,7 +317,16 @@ class NewDotExtension : VimExtension {
     private val fallbackKeys: List<KeyStroke>,
   ) : ExtensionHandler {
     override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
-      if (openPathUnderCursorWithNewDot(editor, context)) return
+      if (openPathUnderCursorWithNewDot(editor, context, "NewDotEdit")) return
+      VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
+    }
+  }
+
+  private class GotoFileWithNewDotSplitOrFallbackHandler(
+    private val fallbackKeys: List<KeyStroke>,
+  ) : ExtensionHandler {
+    override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
+      if (openPathUnderCursorWithNewDot(editor, context, "NewDot")) return
       VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
     }
   }
@@ -1078,10 +1094,10 @@ class NewDotExtension : VimExtension {
     private val FILE_ATTRIBUTES = TextAttributes(JBColor(0x15803D, 0x86EFAC), null, null, null, Font.PLAIN)
     private var explorerKeyMappingInstalled = false
 
-    private fun openPathUnderCursorWithNewDot(editor: VimEditor, context: ExecutionContext): Boolean {
+    private fun openPathUnderCursorWithNewDot(editor: VimEditor, context: ExecutionContext, newDotCommand: String): Boolean {
       if (editor.ij.project == null) return false
       val token = extractPathTokenUnderCursor(editor.ij.document, editor.ij.caretModel.offset) ?: return false
-      runExCommand("NewDotEdit ${escapeExArgument(token)}", editor, context)
+      runExCommand("$newDotCommand ${escapeExArgument(token)}", editor, context)
       return true
     }
 
