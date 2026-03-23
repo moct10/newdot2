@@ -3,11 +3,11 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
   kotlin("jvm") version "2.1.10"
-  id("org.jetbrains.intellij.platform") version "2.12.0"
+  id("org.jetbrains.intellij.platform") version "2.13.1"
 }
 
 group = "com.github.moct10"
-version = "0.2.39"
+version = "0.2.40"
 
 repositories {
   mavenCentral()
