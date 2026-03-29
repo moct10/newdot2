@@ -2,6 +2,7 @@ package com.github.moct10.newdot
 
 import com.intellij.ide.scratch.ScratchFileService
 import com.intellij.ide.scratch.ScratchRootType
+import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.command.WriteCommandAction
@@ -16,6 +17,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
 import com.intellij.openapi.fileTypes.PlainTextLanguage
+import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.Key
@@ -54,6 +56,16 @@ class NewDotExtension : VimExtension {
     VimExtensionFacade.addCommand("NewDot", 0, 1, NewCommandHandler())
     VimExtensionFacade.addCommand("NewDotEdit", 0, 1, EditCommandHandler())
     VimExtensionFacade.addCommand("NewDotTab", 0, 1, TabCommandHandler())
+    VimExtensionFacade.addCommand("sb", 0, 1, SaveBookmarkCommandHandler())
+    VimExtensionFacade.addCommand("lb", 0, 1, ListBookmarkCommandHandler())
+    VimExtensionFacade.addCommand("db", 0, 1, DeleteBookmarkCommandHandler())
+    VimExtensionFacade.addCommand("lsb", 0, 1, ShowBookmarksCommandHandler())
+    VimExtensionFacade.addCommand("bookmarks", 0, 1, ShowBookmarksCommandHandler())
+    VimExtensionFacade.addCommand("wb", 0, 1, SaveBookmarkCommandHandler())
+    VimExtensionFacade.addCommand("NewDotBookmarkSave", 0, 1, SaveBookmarkCommandHandler())
+    VimExtensionFacade.addCommand("NewDotBookmarkList", 0, 1, ListBookmarkCommandHandler())
+    VimExtensionFacade.addCommand("NewDotBookmarkDelete", 0, 1, DeleteBookmarkCommandHandler())
+    VimExtensionFacade.addCommand("NewDotBookmarkShowAll", 0, 1, ShowBookmarksCommandHandler())
     VimExtensionFacade.addCommand("Netrw", 0, 1, NetrwCommandHandler())
     VimExtensionFacade.addCommand("NewDotOpenLine", OpenLineCommandHandler())
     installExplorerKeyMappings()
@@ -195,6 +207,41 @@ class NewDotExtension : VimExtension {
       ExplorerYankOrFallbackHandler(injector.parser.parseKeys("y")),
       false,
     )
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.N,
+      injector.parser.parseKeys("1"),
+      owner,
+      ExplorerBookmarkJumpOrFallbackHandler(injector.parser.parseKeys("1"), 1),
+      false,
+    )
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.N,
+      injector.parser.parseKeys("2"),
+      owner,
+      ExplorerBookmarkJumpOrFallbackHandler(injector.parser.parseKeys("2"), 2),
+      false,
+    )
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.N,
+      injector.parser.parseKeys("3"),
+      owner,
+      ExplorerBookmarkJumpOrFallbackHandler(injector.parser.parseKeys("3"), 3),
+      false,
+    )
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.N,
+      injector.parser.parseKeys("4"),
+      owner,
+      ExplorerBookmarkJumpOrFallbackHandler(injector.parser.parseKeys("4"), 4),
+      false,
+    )
+    VimExtensionFacade.putExtensionHandlerMapping(
+      MappingMode.N,
+      injector.parser.parseKeys("5"),
+      owner,
+      ExplorerBookmarkJumpOrFallbackHandler(injector.parser.parseKeys("5"), 5),
+      false,
+    )
 
     explorerKeyMappingInstalled = true
   }
@@ -311,6 +358,141 @@ class NewDotExtension : VimExtension {
       }
 
       showError(editor, "newdot: Not a directory: ${targetPath ?: arguments}")
+    }
+  }
+
+  private class SaveBookmarkCommandHandler : CommandAliasHandler {
+    override fun execute(command: String, range: Range, editor: VimEditor, context: ExecutionContext) {
+      val project = editor.ij.project ?: return
+      val root = resolveBaseDirectory(editor, project).toAbsolutePath().normalize()
+      val requestedName = command.substringAfter(' ', "").trim().ifEmpty { null }
+      val name = requestedName ?: Messages.showInputDialog(
+        project,
+        "Enter bookmark name for directory:",
+        "Save Bookmark",
+        Messages.getQuestionIcon(),
+        (root.fileName?.toString() ?: "bookmark"),
+        null,
+      )?.trim() ?: return
+
+      if (name.isEmpty()) {
+        showError(editor, "Bookmark name cannot be empty")
+        return
+      }
+
+      val bookmark = Bookmark(name, root, System.currentTimeMillis())
+      if (!BookmarkStorage.addBookmark(bookmark)) {
+        showError(editor, "Failed to save bookmark to ${BookmarkStorage.getStoragePath()}")
+        return
+      }
+      showInfo(editor, "Bookmark '$name' saved")
+    }
+  }
+
+  private class ListBookmarkCommandHandler : CommandAliasHandler {
+    override fun execute(command: String, range: Range, editor: VimEditor, context: ExecutionContext) {
+      val project = editor.ij.project ?: return
+      val bookmarks = BookmarkStorage.getAllBookmarks()
+
+      if (bookmarks.isEmpty()) {
+        showError(editor, "No bookmarks found (storage: ${BookmarkStorage.getStoragePath()})")
+        return
+      }
+
+      val requestedName = command.substringAfter(' ', "").trim().ifEmpty { null }
+      val selected = requestedName ?: run {
+        val options = bookmarks.map { it.name }.toTypedArray()
+        Messages.showInputDialog(
+          project,
+          "Select bookmark to open (available: ${options.joinToString(", ")}):",
+          "Bookmarks",
+          null,
+          options[0],
+          null,
+        )?.trim()
+      } ?: return
+
+      val bookmark = BookmarkStorage.findBookmark(selected)
+      if (bookmark != null) {
+        ExplorerBuffer.open(project, bookmark.path, editor)
+      } else {
+        showError(editor, "Bookmark '$selected' not found")
+      }
+    }
+  }
+
+  private class ShowBookmarksCommandHandler : CommandAliasHandler {
+    override fun execute(command: String, range: Range, editor: VimEditor, context: ExecutionContext) {
+      val project = editor.ij.project ?: return
+      val bookmarks = BookmarkStorage.getAllBookmarks().sortedBy { it.name.lowercase() }
+
+      if (bookmarks.isEmpty()) {
+        showError(editor, "No bookmarks found (storage: ${BookmarkStorage.getStoragePath()})")
+        return
+      }
+
+      val details = buildString {
+        append("Bookmarks (${bookmarks.size})\n\n")
+        bookmarks.forEach { bookmark ->
+          append("- ${bookmark.name}: ${bookmark.path.toAbsolutePath().normalize()}\n")
+        }
+        append("\nStorage: ${BookmarkStorage.getStoragePath()}")
+      }
+
+      Messages.showInfoMessage(project, details, "NewDot Bookmarks")
+      showInfo(editor, "Listed ${bookmarks.size} bookmarks")
+    }
+  }
+
+  private class DeleteBookmarkCommandHandler : CommandAliasHandler {
+    override fun execute(command: String, range: Range, editor: VimEditor, context: ExecutionContext) {
+      val project = editor.ij.project ?: return
+      val bookmarks = BookmarkStorage.getAllBookmarks().sortedBy { it.name.lowercase() }
+
+      if (bookmarks.isEmpty()) {
+        showError(editor, "No bookmarks found (storage: ${BookmarkStorage.getStoragePath()})")
+        return
+      }
+
+      val requestedName = command.substringAfter(' ', "").trim().ifEmpty { null }
+      val selectedName = requestedName ?: run {
+        val options = bookmarks.map { it.name }.toTypedArray()
+        Messages.showInputDialog(
+          project,
+          "Select bookmark to delete (available: ${options.joinToString(", ")}):",
+          "Delete Bookmark",
+          null,
+          options[0],
+          null,
+        )?.trim()
+      } ?: return
+
+      val bookmark = BookmarkStorage.findBookmark(selectedName)
+      if (bookmark == null) {
+        showError(editor, "Bookmark '$selectedName' not found")
+        return
+      }
+
+      if (!BookmarkStorage.removeBookmark(selectedName)) {
+        showError(editor, "Failed to delete bookmark from ${BookmarkStorage.getStoragePath()}")
+        return
+      }
+
+      showInfo(editor, "Deleted bookmark '$selectedName'")
+    }
+  }
+
+  private class ExplorerBookmarkJumpOrFallbackHandler(
+    private val fallbackKeys: List<KeyStroke>,
+    private val bookmarkIndex: Int,
+  ) : ExtensionHandler {
+    override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
+      val project = editor.ij.project
+      if (project != null && isExplorerBuffer(editor)) {
+        ExplorerBuffer.openBookmarkByIndex(project, editor, bookmarkIndex)
+        return
+      }
+      VimExtensionFacade.executeNormalWithoutMapping(fallbackKeys, editor.ij)
     }
   }
 
@@ -466,6 +648,63 @@ class NewDotExtension : VimExtension {
     }
   }
 
+  private class BookmarkSaveHandler : ExtensionHandler {
+    override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
+      val project = editor.ij.project ?: return
+      val root = resolveBaseDirectory(editor, project).toAbsolutePath().normalize()
+
+      val name = Messages.showInputDialog(
+        project,
+        "Enter bookmark name for directory:",
+        "Save Bookmark",
+        Messages.getQuestionIcon(),
+        (root.fileName?.toString() ?: "bookmark"),
+        null,
+      )?.trim() ?: return
+
+      if (name.isEmpty()) {
+        showError(editor, "Bookmark name cannot be empty")
+        return
+      }
+
+      val bookmark = Bookmark(name, root, System.currentTimeMillis())
+      if (!BookmarkStorage.addBookmark(bookmark)) {
+        showError(editor, "Failed to save bookmark to ${BookmarkStorage.getStoragePath()}")
+        return
+      }
+      showInfo(editor, "Bookmark '$name' saved")
+    }
+  }
+
+  private class BookmarkListHandler : ExtensionHandler {
+    override fun execute(editor: VimEditor, context: ExecutionContext, operatorArguments: OperatorArguments) {
+      val project = editor.ij.project ?: return
+      val bookmarks = BookmarkStorage.getAllBookmarks()
+
+      if (bookmarks.isEmpty()) {
+        showError(editor, "No bookmarks found (storage: ${BookmarkStorage.getStoragePath()})")
+        return
+      }
+
+      val options = bookmarks.map { it.name }.toTypedArray()
+      val selected = Messages.showInputDialog(
+        project,
+        "Select bookmark to open (available: ${options.joinToString(", ")}):",
+        "Bookmarks",
+        null,
+        options[0],
+        null,
+      )?.trim() ?: return
+
+      val bookmark = BookmarkStorage.findBookmark(selected)
+      if (bookmark != null) {
+        ExplorerBuffer.open(project, bookmark.path, editor)
+      } else {
+        showError(editor, "Bookmark '$selected' not found")
+      }
+    }
+  }
+
   private class ExplorerYankOrFallbackHandler(
     private val fallbackKeys: List<KeyStroke>,
   ) : ExtensionHandler {
@@ -545,6 +784,22 @@ class NewDotExtension : VimExtension {
       val currentSortMode = readSortMode(ijEditor.document)
       val kind = entry.kind
       val targetPath = entry.path
+
+      if (kind == 'b') {
+        if (!Files.isDirectory(targetPath)) {
+          showError(editor, "newdot: Not a directory: $targetPath")
+          return
+        }
+        val currentRoot = resolveBaseDirectory(editor, project).toAbsolutePath().normalize()
+        val normalizedTarget = targetPath.toAbsolutePath().normalize()
+        if (currentRoot == normalizedTarget) {
+          showInfo(editor, "newdot: Already at bookmark directory: $normalizedTarget")
+          return
+        }
+        replaceExplorerContents(project, ijEditor.document, normalizedTarget, currentSortMode)
+        showInfo(editor, "newdot: Opened bookmark directory: $normalizedTarget")
+        return
+      }
 
       if (kind == 'u' || kind == 'd') {
         if (!Files.isDirectory(targetPath)) {
@@ -838,6 +1093,19 @@ class NewDotExtension : VimExtension {
       showInfo(editor, "newdot: Yanked to register $registerChar")
     }
 
+    fun openBookmarkByIndex(project: Project, editor: VimEditor, bookmarkIndex: Int) {
+      val targetPath = bookmarkPathByIndex(editor.ij.document, bookmarkIndex)
+      if (targetPath == null) {
+        showError(editor, "newdot: Bookmark $bookmarkIndex not available")
+        return
+      }
+      if (!Files.exists(targetPath) || !Files.isDirectory(targetPath)) {
+        showError(editor, "newdot: Bookmark $bookmarkIndex path not found: $targetPath")
+        return
+      }
+      replaceExplorerContents(project, editor.ij.document, targetPath, readSortMode(editor.ij.document))
+    }
+
     private fun replaceExplorerContents(
       project: Project,
       document: Document,
@@ -874,6 +1142,7 @@ class NewDotExtension : VimExtension {
         val lineText = readLine(document, line).trim()
         val attributes = when {
           lineText.startsWith("#") || lineText.startsWith("=") -> HEADER_ATTRIBUTES
+          lineText.startsWith("[b") -> BOOKMARK_ATTRIBUTES
           lineText.startsWith("[u] ") -> PARENT_DIRECTORY_ATTRIBUTES
           lineText.startsWith("[d] ") -> DIRECTORY_ATTRIBUTES
           lineText.startsWith("[f] ") -> FILE_ATTRIBUTES
@@ -903,13 +1172,17 @@ class NewDotExtension : VimExtension {
 
     private fun render(directory: Path, project: Project, sortMode: ExplorerSortMode): String {
       val lines = mutableListOf<String>()
-      lines += EXPLORER_HEADER
+      val headerLine = explorerHeaderLine()
+      val bookmarkLines = renderBookmarkLines()
+      lines += headerLine
       lines += "# root: $directory"
       lines += "# root(project): ${projectRelativePath(directory, project)}"
       lines += "# sort: ${sortMode.id} (N:name T:type M:mtime--newest 1st S:size--largest 1st)"
       lines += "# o: open | -: up | ~: home | p: project root | t: tab | s: split | y: yank"
       lines += "# D: delete | R: rename | %: new file | d: new dir"
-      lines += EXPLORER_HEADER_FOOTER
+      lines += "# bookmarks: 1-5 jump | <Enter>/o on [bN] to go"
+      lines += bookmarkLines
+      lines += "=".repeat(headerLine.length)
       lines += "[d] ./"
       if (directory.parent != null) {
         lines += "[u] ../"
@@ -994,7 +1267,7 @@ class NewDotExtension : VimExtension {
     }
 
     private fun readSortMode(document: Document): ExplorerSortMode {
-      val maxHeaderLines = minOf(document.lineCount, 12)
+      val maxHeaderLines = minOf(document.lineCount, 24)
       for (line in 0 until maxHeaderLines) {
         val text = readLine(document, line).trim()
         if (!text.startsWith("# sort: ")) continue
@@ -1006,6 +1279,16 @@ class NewDotExtension : VimExtension {
 
     private fun resolveEntryUnderCursor(project: Project, editor: VimEditor): CursorEntry? {
       val currentLine = readLine(editor.ij.document, editor.ij.caretModel.logicalPosition.line).trim()
+      val parsedBookmark = parseBookmarkLine(currentLine)
+      if (parsedBookmark != null) {
+        val (_, targetPath) = parsedBookmark
+        if (!Files.exists(targetPath)) {
+          showError(editor, "newdot: Path not found: $targetPath")
+          return null
+        }
+        return CursorEntry('b', targetPath.toString(), targetPath)
+      }
+
       val parsed = when {
         currentLine.startsWith("[u] ") -> 'u' to currentLine.removePrefix("[u] ").trim()
         currentLine.startsWith("[d] ") -> 'd' to currentLine.removePrefix("[d] ").trim()
@@ -1020,6 +1303,44 @@ class NewDotExtension : VimExtension {
         return null
       }
       return CursorEntry(kind, targetText, targetPath)
+    }
+
+    private fun renderBookmarkLines(): List<String> {
+      val available = headerBookmarks()
+      if (available.isEmpty()) return listOf("# bookmarks: (none)")
+
+      return available.mapIndexed { index, bookmark ->
+        "[b${index + 1}] ${bookmark.name} -> ${bookmark.path.toAbsolutePath().normalize()}"
+      }
+    }
+
+    private fun headerBookmarks(): List<Bookmark> {
+      return BookmarkStorage.getAllBookmarks()
+        .sortedBy { it.name.lowercase() }
+        .take(MAX_HEADER_BOOKMARKS)
+    }
+
+    private fun bookmarkPathByIndex(document: Document, bookmarkIndex: Int): Path? {
+      if (bookmarkIndex !in 1..MAX_HEADER_BOOKMARKS) return null
+      val maxHeaderLines = minOf(document.lineCount, 40)
+      for (line in 0 until maxHeaderLines) {
+        val parsed = parseBookmarkLine(readLine(document, line).trim()) ?: continue
+        if (parsed.first == bookmarkIndex) return parsed.second
+      }
+      return null
+    }
+
+    private fun parseBookmarkLine(line: String): Pair<Int, Path>? {
+      val match = BOOKMARK_HEADER_LINE_REGEX.matchEntire(line) ?: return null
+      val index = match.groupValues[1].toIntOrNull() ?: return null
+      val pathText = match.groupValues[2].trim()
+      if (pathText.isEmpty()) return null
+      val path = try {
+        Paths.get(pathText).toAbsolutePath().normalize()
+      } catch (_: Exception) {
+        return null
+      }
+      return index to path
     }
 
     private fun deleteRecursively(target: Path) {
@@ -1110,18 +1431,26 @@ class NewDotExtension : VimExtension {
   }
 
   companion object {
+    private const val owner = "newdot"
     private const val EXTENSION_NAME = "newdot"
-    private val EXPLORER_HEADER = "${"=".repeat(10)} newdot explorer ${"=".repeat(10)}"
-    private val EXPLORER_HEADER_FOOTER = "=".repeat(EXPLORER_HEADER.length)
+    private const val PLUGIN_ID = "com.github.moct10.newdot"
+    private val EXPLORER_HEADER_PREFIX = "${"=".repeat(10)} newdot explorer"
+    private val EXPLORER_HEADER_SUFFIX = " ${"=".repeat(10)}"
+    private val PLUGIN_VERSION: String by lazy {
+      PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID))?.version ?: "dev"
+    }
     private const val EXPLORER_FILE_PREFIX = "newdot-explorer-"
     private val INVALID_FILE_NAME_CHARS = Regex("""[\\/:*?"<>|]""")
     private val CLEANUP_LISTENER_INSTALLED_KEY = Key.create<Boolean>("newdot.cleanup.listener.installed")
     private val EXPLORER_FILE_KEY = Key.create<Boolean>("newdot.explorer.file")
     private val EXPLORER_HIGHLIGHT_KEY = Key.create<Boolean>("newdot.explorer.highlight")
     private val HEADER_ATTRIBUTES = TextAttributes(JBColor(0x6B7280, 0x9CA3AF), null, null, null, Font.ITALIC)
+    private val BOOKMARK_ATTRIBUTES = TextAttributes(JBColor(0x0F766E, 0x5EEAD4), null, null, null, Font.BOLD)
     private val PARENT_DIRECTORY_ATTRIBUTES = TextAttributes(JBColor(0xB45309, 0xF59E0B), null, null, null, Font.BOLD)
     private val DIRECTORY_ATTRIBUTES = TextAttributes(JBColor(0x2563EB, 0x60A5FA), null, null, null, Font.BOLD)
     private val FILE_ATTRIBUTES = TextAttributes(JBColor(0x15803D, 0x86EFAC), null, null, null, Font.PLAIN)
+    private const val MAX_HEADER_BOOKMARKS = 5
+    private val BOOKMARK_HEADER_LINE_REGEX = Regex("""^\[b([1-5])\]\s+.+\s->\s(.+)$""")
     private var explorerKeyMappingInstalled = false
     private var commandLineEnterMappingInstalled = false
 
@@ -1138,7 +1467,8 @@ class NewDotExtension : VimExtension {
 
       val leadingWhitespace = commandText.substring(0, trimmedStart)
       val body = commandText.substring(trimmedStart)
-      val commandToken = body.substringBefore(' ')
+      val bodyWithoutColon = body.removePrefix(":")
+      val commandToken = bodyWithoutColon.substringBefore(' ')
       if (commandToken.isBlank()) return null
 
       val bangSuffix = if (commandToken.endsWith("!")) "!" else ""
@@ -1147,10 +1477,14 @@ class NewDotExtension : VimExtension {
         "new" -> "NewDot$bangSuffix"
         "e", "edit" -> "NewDotEdit$bangSuffix"
         "tabe", "tabedit" -> "NewDotTab$bangSuffix"
+        "sb", "wb" -> "NewDotBookmarkSave$bangSuffix"
+        "lb" -> "NewDotBookmarkList$bangSuffix"
+        "db" -> "NewDotBookmarkDelete$bangSuffix"
+        "lsb", "bookmarks" -> "NewDotBookmarkShowAll$bangSuffix"
         else -> return null
       }
 
-      val argumentPart = body.substringAfter(' ', "").trimStart()
+      val argumentPart = bodyWithoutColon.substringAfter(' ', "").trimStart()
       return if (argumentPart.isEmpty()) {
         "$leadingWhitespace$rewrittenCommand"
       } else {
@@ -1285,11 +1619,19 @@ class NewDotExtension : VimExtension {
     }
 
     private fun isExplorerBuffer(editor: VimEditor): Boolean {
-      return readLine(editor.ij.document, 0).trim() == EXPLORER_HEADER
+      return isExplorerHeaderLine(readLine(editor.ij.document, 0).trim())
     }
 
     private fun isExplorerDocument(document: Document): Boolean {
-      return readLine(document, 0).trim() == EXPLORER_HEADER
+      return isExplorerHeaderLine(readLine(document, 0).trim())
+    }
+
+    private fun isExplorerHeaderLine(line: String): Boolean {
+      return line.startsWith(EXPLORER_HEADER_PREFIX)
+    }
+
+    private fun explorerHeaderLine(): String {
+      return "$EXPLORER_HEADER_PREFIX v$PLUGIN_VERSION$EXPLORER_HEADER_SUFFIX"
     }
 
     private fun runExCommand(

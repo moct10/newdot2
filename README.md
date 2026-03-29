@@ -25,6 +25,16 @@ This plugin adds `:new <path>` support to IdeaVim and opens a file explorer in a
 - In the listing buffer, `<Enter>` (or `o`) on a file (`[f]`) opens that file in place (replaces the explorer in that split).
 - In the listing buffer, `t` on a file opens it in a new tab.
 - In the listing buffer, `s` on a file opens it in a horizontal split.
+- Explorer header shows up to 5 bookmarks as `[b1]` ... `[b5]`.
+- In explorer, press `1`..`5` to jump directly to header bookmarks.
+- In explorer, `<Enter>` (or `o`) on a `[bN]` bookmark line jumps to that bookmarked directory.
+- Bookmark commands are available in command-line mode:
+  - `:sb`, `:wb`, or `:sb <name>`: save a bookmark for the current base directory
+  - `:lb` or `:lb <name>`: open a saved bookmark in the explorer
+  - `:db` or `:db <name>`: delete a bookmark (prompt if no name is given)
+  - `:lsb` or `:bookmarks`: show all bookmarks (name + full path)
+  - The plugin also registers direct aliases for `sb`/`lb`/`db`/`wb` to avoid command parser conflicts.
+- Bookmarks are persisted to a JSON file (`.ideavim-newdot-bookmarks.json`) under the IDE plugin path.
 - Sorting in explorer buffer:
   - `N`: sort by name (ascending)
   - `T`: sort by file type/extension (ascending)
@@ -34,10 +44,10 @@ This plugin adds `:new <path>` support to IdeaVim and opens a file explorer in a
 
 ## Build
 
-This project does not include a Gradle wrapper, so use a local Gradle installation.
+This project includes a Gradle wrapper.
 
 ```bash
-gradle buildPlugin
+./gradlew clean buildPlugin -x buildSearchableOptions -x prepareJarSearchableOptions -x jarSearchableOptions
 ```
 
 The plugin ZIP will be generated under:
@@ -65,6 +75,18 @@ After restarting (or reloading IdeaVim config), you can run:
 :new .
 :new /path/to/dir
 :new ~/Downloads
+```
+
+And for bookmarks:
+
+```vim
+:sb work   " save current base directory as bookmark "work"
+:wb work   " alias of :sb
+:lb work   " open bookmark "work"
+:lb        " choose from saved bookmarks in a prompt
+:db work   " delete bookmark "work"
+:db        " choose bookmark to delete
+:lsb       " show all bookmarks
 ```
 
 This stays in editor splits and does not use the Project tool window.
