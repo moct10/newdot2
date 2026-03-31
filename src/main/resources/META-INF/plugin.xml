@@ -4,7 +4,37 @@
   <vendor>moct10</vendor>
 
   <description><![CDATA[
-    Adds support for :new . in IdeaVim and opens a file explorer buffer in the editor.
+    <h2>Overview</h2>
+    <p>
+      Newdot adds a netrw-style file explorer directly inside the editor for IdeaVim users.
+      It keeps navigation in editor splits/tabs instead of jumping to the Project tool window.
+    </p>
+
+    <h3>Core Commands</h3>
+    <ul>
+      <li><code>:new .</code> open explorer in a split</li>
+      <li><code>:e .</code> replace current view with explorer</li>
+      <li><code>:tabe .</code> open explorer in a new tab</li>
+      <li>Works with other folders too, for example <code>:new ~</code></li>
+    </ul>
+
+    <h3>Explorer Keys</h3>
+    <ul>
+      <li><code>&lt;Enter&gt;</code> / <code>o</code>: open item</li>
+      <li><code>t</code>: open file in new tab</li>
+      <li><code>s</code>: open file in horizontal split</li>
+      <li><code>-</code>: parent directory, <code>~</code>: home, <code>p</code>: project root</li>
+      <li><code>N</code>/<code>T</code>/<code>M</code>/<code>S</code>: sort by name/type/mtime/size</li>
+      <li><code>y</code>: yank full path</li>
+    </ul>
+
+    <h3>Bookmarks</h3>
+    <ul>
+      <li><code>:sb</code> or <code>:wb</code>: save bookmark</li>
+      <li><code>:lb</code>: open bookmark by name</li>
+      <li><code>:db</code>: delete bookmark</li>
+      <li><code>:lsb</code> or <code>:bookmarks</code>: show all bookmarks</li>
+    </ul>
   ]]></description>
 
   <depends>com.intellij.modules.platform</depends>

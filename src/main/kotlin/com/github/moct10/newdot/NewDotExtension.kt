@@ -34,8 +34,6 @@ import com.maddyhome.idea.vim.ex.ranges.Range
 import com.maddyhome.idea.vim.extension.ExtensionHandler
 import com.maddyhome.idea.vim.extension.VimExtension
 import com.maddyhome.idea.vim.extension.VimExtensionFacade
-import com.maddyhome.idea.vim.newapi.ij
-import com.maddyhome.idea.vim.newapi.vim
 import com.maddyhome.idea.vim.state.mode.SelectionType
 import java.awt.Font
 import java.io.IOException
@@ -48,6 +46,69 @@ import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
 import javax.swing.KeyStroke
 import javax.swing.SwingConstants
+
+private val VimEditor.ij: Editor
+  get() = resolveIjEditor(this)
+    ?: throw IllegalStateException("newdot: Unable to unwrap IntelliJ editor from ${this.javaClass.name}")
+
+private fun resolveIjEditor(vimEditor: VimEditor): Editor? {
+  if (vimEditor is Editor) return vimEditor
+
+  val editorClass = vimEditor.javaClass
+  val methods = editorClass.methods.toList() + editorClass.declaredMethods.toList()
+  val preferredGetters = listOf("getEditor", "getIj")
+  for (name in preferredGetters) {
+    val method = methods.firstOrNull { candidate ->
+      candidate.name == name &&
+        candidate.parameterCount == 0 &&
+        Editor::class.java.isAssignableFrom(candidate.returnType)
+    } ?: continue
+    invokeEditorGetter(vimEditor, method)?.let { return it }
+  }
+
+  methods.firstOrNull { candidate ->
+    candidate.parameterCount == 0 && Editor::class.java.isAssignableFrom(candidate.returnType)
+  }?.let { method ->
+    invokeEditorGetter(vimEditor, method)?.let { return it }
+  }
+
+  val fields = editorClass.declaredFields.toList()
+  val preferredFields = listOf("editor", "ij")
+  for (name in preferredFields) {
+    val field = fields.firstOrNull { candidate ->
+      candidate.name == name && Editor::class.java.isAssignableFrom(candidate.type)
+    } ?: continue
+    readEditorField(vimEditor, field)?.let { return it }
+  }
+
+  fields.firstOrNull { candidate -> Editor::class.java.isAssignableFrom(candidate.type) }?.let { field ->
+    readEditorField(vimEditor, field)?.let { return it }
+  }
+
+  return null
+}
+
+private fun invokeEditorGetter(target: Any, method: java.lang.reflect.Method): Editor? {
+  return try {
+    if (!method.canAccess(target)) {
+      method.isAccessible = true
+    }
+    method.invoke(target) as? Editor
+  } catch (_: Throwable) {
+    null
+  }
+}
+
+private fun readEditorField(target: Any, field: java.lang.reflect.Field): Editor? {
+  return try {
+    if (!field.canAccess(target)) {
+      field.isAccessible = true
+    }
+    field.get(target) as? Editor
+  } catch (_: Throwable) {
+    null
+  }
+}
 
 class NewDotExtension : VimExtension {
   override fun getName(): String = EXTENSION_NAME
